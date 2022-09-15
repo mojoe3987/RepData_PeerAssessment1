@@ -7,19 +7,69 @@ output:
 
 
 ## Loading and preprocessing the data
-
-
+install.packages("lubridate")
+library(lubridate)
+df <- read.csv(unz("activity.zip", "activity.csv"))
+head(df)
+str(df)
+df$date <- as_date(df$date)
 
 ## What is mean total number of steps taken per day?
-
+df$date_fac <- as.factor(df$date)
+steps_per_day <- aggregate(df$steps,by = list(Category = df$date_fac), FUN = sum)
+hist(steps_per_day$x,main = "Total number of steps per day", xlab = "Steps per day")
+sum_steps <- sum(df$steps,na.rm = TRUE)
+mean(steps_per_day$x,na.rm = TRUE)
+median(steps_per_day$x,na.rm = TRUE)
 
 
 ## What is the average daily activity pattern?
-
+library(ggplot2)
+df$interval_fac <- as.factor(df$interval)
+steps_per_interval <- aggregate(df$steps,by = list(Category = df$interval_fac), FUN = sum, na.rm = TRUE)
+steps_per_interval$Category <- as.numeric(steps_per_interval$Category)
+plot(steps_per_interval$Category, steps_per_interval$x, type="l", col=1, main="Average number of steps by Interval", xlab="Time Intervals", ylab="Average number of steps")
+print(steps_per_interval[which.max(steps_per_interval$x),1])
 
 
 ## Imputing missing values
+missing <- sum(is.na(df))
+mean_steps_per_day <- aggregate(df$steps,by = list(Category = df$date_fac), FUN = mean)
+mean_steps_per_day[1,2] <- 0
+df_immu <- df
 
+for (i in 1:nrow(df_immu)) {
+  if(is.na(df_immu$steps[i])) {
+    date <- df_immu[i,4]
+    val <- mean_steps_per_day$x[(date == mean_steps_per_day$Category)]
+    df_immu$steps[i] <- val
+  }
+}
+
+steps_per_day_immu <- aggregate(df_immu$steps,by = list(Category = df_immu$date_fac), FUN = sum)
+hist(steps_per_day_immu$x,main = "Total number of steps per day", xlab = "Steps per day")
+sum_steps_immu <- sum(df_immu$steps,na.rm = TRUE)
+mean(steps_per_day_immu$x,na.rm = TRUE)
+median(steps_per_day_immu$x,na.rm = TRUE)
 
 
 ## Are there differences in activity patterns between weekdays and weekends?
+df$day <- weekdays(df$date)
+for (i in 1:nrow(df)) {
+  if(df$day[i] %in% c("Monday","Tuesday","Wednesday","Thursday","Friday")){
+  df$weekend[i] <- 1
+  } else {
+    df$weekend[i] <- 2
+  }
+}
+
+steps_per_weekday <- aggregate(df$steps ~ df$interval + df$weekend, df, mean)
+
+plt <- ggplot(df, aes(df$interval, df$steps)) +
+    geom_line(stat = "identity", aes(colour = df$weekend)) +
+    theme_gray() +
+    facet_grid(df$weekend ~ ., scales="fixed", space="fixed") +
+    labs(x="Interval", y=expression("No of Steps")) +
+    ggtitle("No of steps Per Interval by day type")
+print(plt)
+
